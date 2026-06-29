@@ -62,8 +62,19 @@ service cloud.firestore {
         || (isShopOwner() && resource.data.ownerId == request.auth.uid);
     }
 
-    match /offers/{document=**} {
-      allow read, write: if false;
+    match /offers/{offerId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.ownerId == request.auth.uid)
+        || (resource.data.active == true);
+
+      allow create: if isAdmin()
+        || (isShopOwner() && request.resource.data.ownerId == request.auth.uid);
+
+      allow update: if isAdmin()
+        || (isShopOwner() && resource.data.ownerId == request.auth.uid && request.resource.data.ownerId == request.auth.uid);
+
+      allow delete: if isAdmin()
+        || (isShopOwner() && resource.data.ownerId == request.auth.uid);
     }
 
     match /categories/{document=**} {
