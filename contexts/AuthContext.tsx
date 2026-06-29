@@ -45,6 +45,24 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("Database connection timed out"));
+    }, timeoutMs);
+
+    promise
+      .then((res) => {
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<User | null>(null);
@@ -78,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           try {
-            const profile = await getUserProfile(user.uid);
+            const profile = await promiseWithTimeout(getUserProfile(user.uid), 4000);
             if (profile && profile.disabled) {
               await logoutUser();
               setFirebaseUser(null);
@@ -86,7 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } else {
               setUserProfile(profile);
             }
-          } catch {
+          } catch (err) {
+            console.warn("Auth initialization profile fetch timed out or failed:", err);
             setUserProfile(null);
           } finally {
             if (isMounted) {
