@@ -50,7 +50,7 @@ service cloud.firestore {
     match /shops/{shopId} {
       allow read: if isAdmin()
         || (isShopOwner() && resource.data.ownerId == request.auth.uid)
-        || (isSignedIn() && getUserRole() == 'customer');
+        || (isSignedIn() && getUserRole() == 'customer' && resource.data.verified == true);
 
       allow create: if isAdmin()
         || (isShopOwner() && request.resource.data.ownerId == request.auth.uid);
@@ -64,8 +64,8 @@ service cloud.firestore {
 
     match /offers/{offerId} {
       allow read: if isAdmin()
-        || (isSignedIn() && resource.data.ownerId == request.auth.uid)
-        || (resource.data.active == true);
+        || (isShopOwner() && resource.data.ownerId == request.auth.uid)
+        || (isSignedIn() && getUserRole() == 'customer' && resource.data.active == true);
 
       allow create: if isAdmin()
         || (isShopOwner() && request.resource.data.ownerId == request.auth.uid);

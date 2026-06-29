@@ -19,6 +19,7 @@ export interface User extends BaseDocumentMeta {
   phone: string | null;
   lastLogin: FirestoreTimestamp;
   isVerified: boolean;
+  favorites?: string[];
 }
 
 /** Fields required when creating a user profile. */
@@ -30,6 +31,7 @@ export interface UserCreateInput {
   photoURL?: string | null;
   phone?: string | null;
   isVerified?: boolean;
+  favorites?: string[];
 }
 
 /** Fields that can be updated on an existing user profile. */
@@ -39,6 +41,7 @@ export interface UserUpdateInput {
   phone?: string | null;
   lastLogin?: Date;
   isVerified?: boolean;
+  favorites?: string[];
 }
 
 /** User document with timestamps converted for client use. */
