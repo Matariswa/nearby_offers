@@ -10,6 +10,18 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isShopOwner() {
+      return isSignedIn() && getUserRole() == 'shop_owner';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserRole() == 'admin';
+    }
+
     function isValidUserCreate() {
       return request.resource.data.uid == request.auth.uid
         && request.resource.data.email is string
@@ -35,8 +47,19 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    match /shops/{document=**} {
-      allow read, write: if false;
+    match /shops/{shopId} {
+      allow read: if isAdmin()
+        || (isShopOwner() && resource.data.ownerId == request.auth.uid)
+        || (isSignedIn() && getUserRole() == 'customer');
+
+      allow create: if isAdmin()
+        || (isShopOwner() && request.resource.data.ownerId == request.auth.uid);
+
+      allow update: if isAdmin()
+        || (isShopOwner() && resource.data.ownerId == request.auth.uid && request.resource.data.ownerId == request.auth.uid);
+
+      allow delete: if isAdmin()
+        || (isShopOwner() && resource.data.ownerId == request.auth.uid);
     }
 
     match /offers/{document=**} {

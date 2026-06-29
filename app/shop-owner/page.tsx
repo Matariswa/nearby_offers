@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   Card,
@@ -54,7 +56,9 @@ export default function ShopOwnerDashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="outline">Create shop profile</Button>
+            <Link href="/shop-owner/shop">
+              <Button variant="outline">Create shop profile</Button>
+            </Link>
           </CardContent>
         </Card>
 
