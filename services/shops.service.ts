@@ -105,6 +105,24 @@ export class ShopsService {
     await uploadBytes(imageRef, file);
     return getDownloadURL(imageRef);
   }
+
+  /**
+   * Fetch all shops from Firestore.
+   */
+  async getAllShops(): Promise<Shop[]> {
+    const { getDocs } = await import("firebase/firestore");
+    const snapshot = await getDocs(this.collection);
+    return snapshot.docs.map((doc) => doc.data());
+  }
+
+  /**
+   * Delete an existing shop profile.
+   */
+  async deleteShop(shopId: string): Promise<void> {
+    const { deleteDoc } = await import("firebase/firestore");
+    const docRef = this.getDocRef(shopId);
+    await deleteDoc(docRef);
+  }
 }
 
 export const shopsService = new ShopsService();

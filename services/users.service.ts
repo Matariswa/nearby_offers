@@ -87,6 +87,31 @@ export class UsersService {
     if (!snap.exists()) return [];
     return snap.data().favoriteOffers || [];
   }
+
+  /**
+   * Fetch all users from Firestore.
+   */
+  async getAllUsers(): Promise<User[]> {
+    const { getDocs } = await import("firebase/firestore");
+    const snapshot = await getDocs(this.collection);
+    return snapshot.docs.map((doc) => doc.data());
+  }
+
+  /**
+   * Update a user's role.
+   */
+  async updateUserRole(uid: string, role: User["role"]): Promise<void> {
+    const docRef = this.getDocRef(uid);
+    await updateDoc(docRef, { role });
+  }
+
+  /**
+   * Enable or disable a user account.
+   */
+  async updateUserStatus(uid: string, disabled: boolean): Promise<void> {
+    const docRef = this.getDocRef(uid);
+    await updateDoc(docRef, { disabled });
+  }
 }
 
 export const usersService = new UsersService();

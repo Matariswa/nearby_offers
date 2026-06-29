@@ -38,11 +38,12 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) || isAdmin();
 
       allow create: if isOwner(userId) && isValidUserCreate();
 
-      allow update: if isOwner(userId) && isValidUserUpdate();
+      allow update: if (isOwner(userId) && isValidUserUpdate())
+        || (isAdmin() && (request.resource.data.uid != request.auth.uid || request.resource.data.role == resource.data.role));
 
       allow delete: if false;
     }

@@ -115,6 +115,15 @@ export class OffersService {
     await uploadBytes(imageRef, file);
     return getDownloadURL(imageRef);
   }
+
+  /**
+   * Fetch all offers from Firestore.
+   */
+  async getAllOffers(): Promise<Offer[]> {
+    const { getDocs } = await import("firebase/firestore");
+    const snapshot = await getDocs(this.collection);
+    return snapshot.docs.map((doc) => doc.data());
+  }
 }
 
 export const offersService = new OffersService();

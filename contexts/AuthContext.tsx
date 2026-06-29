@@ -79,7 +79,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           try {
             const profile = await getUserProfile(user.uid);
-            setUserProfile(profile);
+            if (profile && profile.disabled) {
+              await logoutUser();
+              setFirebaseUser(null);
+              setUserProfile(null);
+            } else {
+              setUserProfile(profile);
+            }
           } catch {
             setUserProfile(null);
           } finally {
@@ -124,6 +130,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (params: SignInParams) => {
     try {
       const { firebaseUser: user, profile } = await signInWithEmail(params);
+      if (profile && profile.disabled) {
+        await logoutUser();
+        throw new Error("Your account has been disabled. Please contact support.");
+      }
       setFirebaseUser(user);
       setUserProfile(profile);
       return profile;
@@ -135,6 +145,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInGoogle = useCallback(async (params?: GoogleSignInParams) => {
     try {
       const { firebaseUser: user, profile } = await signInWithGoogle(params);
+      if (profile && profile.disabled) {
+        await logoutUser();
+        throw new Error("Your account has been disabled. Please contact support.");
+      }
       setFirebaseUser(user);
       setUserProfile(profile);
       return profile;

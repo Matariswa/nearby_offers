@@ -21,6 +21,7 @@ export interface User extends BaseDocumentMeta {
   isVerified: boolean;
   favorites?: string[];
   favoriteOffers?: string[];
+  disabled?: boolean;
 }
 
 /** Fields required when creating a user profile. */
@@ -45,6 +46,7 @@ export interface UserUpdateInput {
   isVerified?: boolean;
   favorites?: string[];
   favoriteOffers?: string[];
+  disabled?: boolean;
 }
 
 /** User document with timestamps converted for client use. */
