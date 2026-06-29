@@ -51,6 +51,7 @@ export function LoginForm() {
       const profile = await signIn({ email, password });
       router.replace(getDashboardPathForRole(profile.role));
     } catch (error) {
+      alert("Debug Login Error: " + (error instanceof Error ? error.message : String(error)));
       setFormError(
         error instanceof Error ? error.message : "Unable to sign in.",
       );
@@ -67,6 +68,7 @@ export function LoginForm() {
       const profile = await signInGoogle();
       router.replace(getDashboardPathForRole(profile.role));
     } catch (error) {
+      alert("Debug Google Login Error: " + (error instanceof Error ? error.message : String(error)));
       setFormError(
         error instanceof Error ? error.message : "Google sign-in failed.",
       );
