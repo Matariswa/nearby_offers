@@ -47,8 +47,8 @@ export default function DashboardPage() {
         <CardHeader>
           <CardTitle>Recent activity</CardTitle>
           <CardDescription>
-            Your browsing history and saved offers will appear here once you
-            sign in and start exploring.
+            Your browsing history and saved offers will appear here as you
+            explore nearby shops.
           </CardDescription>
         </CardHeader>
         <CardContent>

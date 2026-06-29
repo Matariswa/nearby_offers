@@ -7,6 +7,7 @@ export type {
 
 export type {
   UserRole,
+  RegisterableRole,
   User,
   UserCreateInput,
   UserUpdateInput,

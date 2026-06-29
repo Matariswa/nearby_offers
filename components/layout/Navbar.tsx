@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
+import { getDashboardPathForRole, getRoleLabel } from "@/lib/auth/redirects";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
@@ -14,7 +16,26 @@ const navLinks = [
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { firebaseUser, userProfile, loading, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const dashboardHref = userProfile
+    ? getDashboardPathForRole(userProfile.role)
+    : "/dashboard";
+
+  async function handleLogout() {
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+      router.replace("/");
+    } finally {
+      setIsLoggingOut(false);
+      setMobileOpen(false);
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur-md">
@@ -46,14 +67,34 @@ export function Navbar() {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Link href="/login">
-            <Button variant="ghost" size="sm">
-              Log in
-            </Button>
-          </Link>
-          <Link href="/register">
-            <Button size="sm">Get started</Button>
-          </Link>
+          {!loading && firebaseUser && userProfile ? (
+            <>
+              <Link href={dashboardHref}>
+                <Button variant="ghost" size="sm">
+                  {getRoleLabel(userProfile.role)} Dashboard
+                </Button>
+              </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                isLoading={isLoggingOut}
+              >
+                Log out
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link href="/login">
+                <Button variant="ghost" size="sm">
+                  Log in
+                </Button>
+              </Link>
+              <Link href="/register">
+                <Button size="sm">Get started</Button>
+              </Link>
+            </>
+          )}
         </div>
 
         <button
@@ -107,14 +148,34 @@ export function Navbar() {
               </Link>
             ))}
             <div className="mt-2 flex flex-col gap-2 border-t border-slate-100 pt-4">
-              <Link href="/login" onClick={() => setMobileOpen(false)}>
-                <Button variant="outline" className="w-full">
-                  Log in
-                </Button>
-              </Link>
-              <Link href="/register" onClick={() => setMobileOpen(false)}>
-                <Button className="w-full">Get started</Button>
-              </Link>
+              {!loading && firebaseUser && userProfile ? (
+                <>
+                  <Link href={dashboardHref} onClick={() => setMobileOpen(false)}>
+                    <Button variant="outline" className="w-full">
+                      {getRoleLabel(userProfile.role)} Dashboard
+                    </Button>
+                  </Link>
+                  <Button
+                    className="w-full"
+                    variant="ghost"
+                    onClick={handleLogout}
+                    isLoading={isLoggingOut}
+                  >
+                    Log out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link href="/login" onClick={() => setMobileOpen(false)}>
+                    <Button variant="outline" className="w-full">
+                      Log in
+                    </Button>
+                  </Link>
+                  <Link href="/register" onClick={() => setMobileOpen(false)}>
+                    <Button className="w-full">Get started</Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

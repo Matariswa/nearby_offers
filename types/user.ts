@@ -1,15 +1,24 @@
-import type { AuditableDocumentMeta, SerializedTimestamp } from "@/types/common";
+import type {
+  BaseDocumentMeta,
+  FirestoreTimestamp,
+  SerializedTimestamp,
+} from "@/types/common";
 
 export type UserRole = "customer" | "shop_owner" | "admin";
 
+/** Roles allowed during public registration. */
+export type RegisterableRole = Extract<UserRole, "customer" | "shop_owner">;
+
 /** Firestore `users` collection document shape. */
-export interface User extends AuditableDocumentMeta {
+export interface User extends BaseDocumentMeta {
   uid: string;
   name: string;
   email: string;
   role: UserRole;
   photoURL: string | null;
   phone: string | null;
+  lastLogin: FirestoreTimestamp;
+  isVerified: boolean;
 }
 
 /** Fields required when creating a user profile. */
@@ -17,9 +26,10 @@ export interface UserCreateInput {
   uid: string;
   name: string;
   email: string;
-  role: UserRole;
+  role: RegisterableRole;
   photoURL?: string | null;
   phone?: string | null;
+  isVerified?: boolean;
 }
 
 /** Fields that can be updated on an existing user profile. */
@@ -27,11 +37,12 @@ export interface UserUpdateInput {
   name?: string;
   photoURL?: string | null;
   phone?: string | null;
+  lastLogin?: Date;
+  isVerified?: boolean;
 }
 
 /** User document with timestamps converted for client use. */
-export interface SerializedUser
-  extends Omit<User, "createdAt" | "updatedAt"> {
+export interface SerializedUser extends Omit<User, "createdAt" | "lastLogin"> {
   createdAt: SerializedTimestamp;
-  updatedAt: SerializedTimestamp;
+  lastLogin: SerializedTimestamp;
 }

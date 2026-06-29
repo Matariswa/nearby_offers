@@ -11,6 +11,18 @@ export {
   categoriesService,
 } from "@/services/categories.service";
 
+export {
+  signUpWithEmail,
+  signInWithEmail,
+  signInWithGoogle,
+  sendPasswordReset,
+  logoutUser,
+  getUserProfile,
+  createUserProfile,
+  updateUserLastLogin,
+  initializeAuthPersistence,
+} from "@/services/auth.service";
+
 /** Central registry for Firestore collection services. */
 export const firestoreServices = {
   users: usersService,
