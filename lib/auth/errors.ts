@@ -28,6 +28,8 @@ const FIREBASE_AUTH_ERRORS: Record<string, string> = {
 };
 
 export function getAuthErrorMessage(error: unknown): string {
+  console.error("Auth error details:", error);
+
   if (error instanceof FirebaseNotConfiguredError) {
     return error.message;
   }
@@ -38,12 +40,16 @@ export function getAuthErrorMessage(error: unknown): string {
     "code" in error &&
     typeof error.code === "string"
   ) {
-    return FIREBASE_AUTH_ERRORS[error.code] ?? "Authentication failed. Please try again.";
+    const mapped = FIREBASE_AUTH_ERRORS[error.code];
+    if (mapped) return mapped;
+
+    const fbMessage = (error as any).message || "";
+    return `Authentication failed: ${error.code} - ${fbMessage}`;
   }
 
   if (error instanceof Error && error.message) {
     return error.message;
   }
 
-  return "Something went wrong. Please try again.";
+  return `Something went wrong: ${String(error)}`;
 }
