@@ -94,10 +94,11 @@ export default function ShopProfilePage() {
   // Load shop profile
   useEffect(() => {
     if (!firebaseUser) return;
+    const uid = firebaseUser.uid;
 
     async function loadShop() {
       try {
-        const data = await shopsService.getShopByOwner(firebaseUser.uid);
+        const data = await shopsService.getShopByOwner(uid);
         if (data) {
           setShop(data);
           setExistingImages(data.shopImages || []);

@@ -57,14 +57,15 @@ export default function FavoritesPage() {
   // Fetch data
   useEffect(() => {
     if (!firebaseUser) return;
+    const uid = firebaseUser.uid;
 
     async function loadData() {
       try {
         const { getDocs } = await import("firebase/firestore");
 
         // Fetch User profile fav lists
-        const favShopIds = await usersService.getFavoriteShops(firebaseUser.uid);
-        const favOfferIds = await usersService.getFavoriteOffers(firebaseUser.uid);
+        const favShopIds = await usersService.getFavoriteShops(uid);
+        const favOfferIds = await usersService.getFavoriteOffers(uid);
 
         // Fetch all verified shops
         const shopsRef = shopsService.getCollectionRef();
@@ -78,7 +79,7 @@ export default function FavoritesPage() {
         if (userLocation) {
           filteredShops.forEach((shop) => {
             if (shop.latitude && shop.longitude) {
-              shop.distance = calculateDistance(
+              (shop as any).distance = calculateDistance(
                 { latitude: userLocation.latitude, longitude: userLocation.longitude },
                 { latitude: shop.latitude, longitude: shop.longitude }
               );
@@ -102,7 +103,7 @@ export default function FavoritesPage() {
 
         // Filter active & saved offers
         const filteredOffers = allOffers.filter((o) => {
-          const end = o.endDate?.toDate ? o.endDate.toDate() : new Date(o.endDate);
+          const end = (o.endDate as any)?.toDate ? (o.endDate as any).toDate() : new Date(o.endDate as any);
           end.setHours(0, 0, 0, 0);
           return o.active === true && end >= today && favOfferIds.includes(o.offerId);
         });
@@ -278,9 +279,9 @@ export default function FavoritesPage() {
                     </div>
 
                     <p className="text-slate-400 text-xs mt-4 truncate">📍 {shop.address}, {shop.city}</p>
-                    {shop.distance !== undefined && (
+                    {(shop as any).distance !== undefined && (
                       <p className="text-slate-500 text-xs font-semibold mt-1">
-                        📍 Distance: {shop.distance.toFixed(1)} km
+                        📍 Distance: {(shop as any).distance.toFixed(1)} km
                       </p>
                     )}
                     {shop.openingTime && (

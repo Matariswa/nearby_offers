@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useTransition, use } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
@@ -46,13 +47,14 @@ export default function ShopDetailsPage() {
   // Load shop profile, favorites, and offers
   useEffect(() => {
     if (!firebaseUser || !shopId) return;
+    const uid = firebaseUser.uid;
 
     async function loadData() {
       try {
         const { getDoc, getDocs, query, where } = await import("firebase/firestore");
         
         // Fetch Favorites
-        const favsList = await usersService.getFavoriteShops(firebaseUser.uid);
+        const favsList = await usersService.getFavoriteShops(uid);
         setFavorites(favsList);
 
         // Fetch Shop Doc
@@ -85,7 +87,7 @@ export default function ShopDetailsPage() {
         today.setHours(0, 0, 0, 0);
 
         const activeOffers = allOffers.filter((o) => {
-          const end = o.endDate?.toDate ? o.endDate.toDate() : new Date(o.endDate);
+          const end = (o.endDate as any)?.toDate ? (o.endDate as any).toDate() : new Date(o.endDate as any);
           end.setHours(0, 0, 0, 0);
           return o.active === true && end >= today;
         });

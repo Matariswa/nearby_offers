@@ -99,10 +99,11 @@ export default function OffersPage() {
   // Load shop profile and offers
   useEffect(() => {
     if (!firebaseUser) return;
+    const uid = firebaseUser.uid;
 
     async function loadData() {
       try {
-        const shopProfile = await shopsService.getShopByOwner(firebaseUser.uid);
+        const shopProfile = await shopsService.getShopByOwner(uid);
         if (shopProfile) {
           setShop(shopProfile);
           const shopOffers = await offersService.getOffersByShop(shopProfile.shopId);
@@ -174,12 +175,12 @@ export default function OffersPage() {
     setBannerFile(null);
     setBannerPreview(null);
 
-    const startStr = offer.startDate?.toDate
-      ? offer.startDate.toDate().toISOString().split("T")[0]
-      : new Date(offer.startDate).toISOString().split("T")[0];
-    const endStr = offer.endDate?.toDate
-      ? offer.endDate.toDate().toISOString().split("T")[0]
-      : new Date(offer.endDate).toISOString().split("T")[0];
+    const startStr = (offer.startDate as any)?.toDate
+      ? (offer.startDate as any).toDate().toISOString().split("T")[0]
+      : new Date(offer.startDate as any).toISOString().split("T")[0];
+    const endStr = (offer.endDate as any)?.toDate
+      ? (offer.endDate as any).toDate().toISOString().split("T")[0]
+      : new Date(offer.endDate as any).toISOString().split("T")[0];
 
     setFormValues({
       title: offer.title,
@@ -330,12 +331,12 @@ export default function OffersPage() {
     })
     .sort((a, b) => {
       if (sortBy === "latest") {
-        const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime();
-        const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime();
+        const aTime = (a.createdAt as any)?.toDate ? (a.createdAt as any).toDate().getTime() : new Date(a.createdAt as any).getTime();
+        const bTime = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate().getTime() : new Date(b.createdAt as any).getTime();
         return bTime - aTime;
       } else if (sortBy === "oldest") {
-        const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime();
-        const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime();
+        const aTime = (a.createdAt as any)?.toDate ? (a.createdAt as any).toDate().getTime() : new Date(a.createdAt as any).getTime();
+        const bTime = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate().getTime() : new Date(b.createdAt as any).getTime();
         return aTime - bTime;
       } else if (sortBy === "discount") {
         return b.discountValue - a.discountValue;

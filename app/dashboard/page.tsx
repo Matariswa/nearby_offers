@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useTransition, useMemo } from "react";
+import { useEffect, useState, useRef, useTransition, useMemo, type FormEvent } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
@@ -73,8 +73,18 @@ export default function CustomerDashboardPage() {
   const [selectedRadius, setSelectedRadius] = useState<number>(5); // default 5 km
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedOfferType, setSelectedOfferType] = useState("All");
-  const [sortBy, setSortBy] = useState<"nearest" | "discount" | "recent">("nearest");
+  const [sortBy, setSortBy] = useState<"nearest" | "discount" | "expiringSoon" | "recent">("nearest");
   const [viewTab, setViewTab] = useState<"shops" | "offers">("shops");
+
+  const formatDate = (ts: any) => {
+    if (!ts) return "";
+    const date = ts.toDate ? ts.toDate() : new Date(ts);
+    return date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
 
   // Google Maps
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
@@ -120,14 +130,15 @@ export default function CustomerDashboardPage() {
   // Fetch verified shops and active offers from Firestore
   useEffect(() => {
     if (!firebaseUser) return;
+    const uid = firebaseUser.uid;
 
     async function loadData() {
       try {
         // Fetch favorites lists
-        const favsList = await usersService.getFavoriteShops(firebaseUser.uid);
+        const favsList = await usersService.getFavoriteShops(uid);
         setFavorites(favsList);
 
-        const favOffers = await usersService.getFavoriteOffers(firebaseUser.uid);
+        const favOffers = await usersService.getFavoriteOffers(uid);
         setFavoriteOffers(favOffers);
 
         // Load all shops
@@ -148,7 +159,7 @@ export default function CustomerDashboardPage() {
         today.setHours(0, 0, 0, 0);
         
         const activeOffers = allOffers.filter((o) => {
-          const end = o.endDate?.toDate ? o.endDate.toDate() : new Date(o.endDate);
+          const end = (o.endDate as any)?.toDate ? (o.endDate as any).toDate() : new Date(o.endDate as any);
           end.setHours(0, 0, 0, 0);
           return o.active === true && end >= today;
         });
@@ -313,8 +324,8 @@ export default function CustomerDashboardPage() {
         return a.distance - b.distance;
       }
       if (sortBy === "recent") {
-        const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime();
-        const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime();
+        const aTime = (a.createdAt as any)?.toDate ? (a.createdAt as any).toDate().getTime() : new Date(a.createdAt as any).getTime();
+        const bTime = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate().getTime() : new Date(b.createdAt as any).getTime();
         return bTime - aTime;
       }
       return 0;
@@ -330,9 +341,14 @@ export default function CustomerDashboardPage() {
       if (sortBy === "discount") {
         return b.discountValue - a.discountValue;
       }
+      if (sortBy === "expiringSoon") {
+        const aTime = (a.endDate as any)?.toDate ? (a.endDate as any).toDate().getTime() : new Date(a.endDate as any).getTime();
+        const bTime = (b.endDate as any)?.toDate ? (b.endDate as any).toDate().getTime() : new Date(b.endDate as any).getTime();
+        return aTime - bTime;
+      }
       if (sortBy === "recent") {
-        const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime();
-        const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime();
+        const aTime = (a.createdAt as any)?.toDate ? (a.createdAt as any).toDate().getTime() : new Date(a.createdAt as any).getTime();
+        const bTime = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate().getTime() : new Date(b.createdAt as any).getTime();
         return bTime - aTime;
       }
       return 0;
@@ -554,7 +570,12 @@ export default function CustomerDashboardPage() {
         <div className="flex items-center gap-2 justify-between">
           <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
             <button
-              onClick={() => setViewTab("shops")}
+              onClick={() => {
+                setViewTab("shops");
+                if (sortBy === "discount" || sortBy === "expiringSoon") {
+                  setSortBy("nearest");
+                }
+              }}
               className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
                 viewTab === "shops" ? "bg-white text-brand-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
               }`}
@@ -620,8 +641,14 @@ export default function CustomerDashboardPage() {
             className="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-brand-500"
           >
             <option value="nearest">Sort by: Nearest</option>
-            {viewTab === "offers" && <option value="discount">Sort by: Discount</option>}
-            <option value="recent">Sort by: Newest</option>
+            {viewTab === "offers" ? (
+              <>
+                <option value="discount">Sort by: Highest Discount</option>
+                <option value="expiringSoon">Sort by: Expiring Soon</option>
+              </>
+            ) : (
+              <option value="recent">Sort by: Newest</option>
+            )}
           </select>
         </div>
       </div>
@@ -631,17 +658,11 @@ export default function CustomerDashboardPage() {
         {/* Left Column: Listings */}
         <div className="lg:col-span-7 space-y-4 max-h-[80vh] overflow-y-auto pr-2">
           {loading || locating ? (
-            <div className="space-y-4">
-              {[1, 2, 3, 4].map((i) => (
-                <Card key={i} className="animate-pulse flex p-4 gap-4 bg-slate-50/50">
-                  <div className="h-16 w-16 bg-slate-200 rounded-lg shrink-0"></div>
-                  <div className="space-y-2.5 flex-1">
-                    <div className="h-5 bg-slate-200 rounded w-2/3"></div>
-                    <div className="h-3.5 bg-slate-200 rounded w-1/3"></div>
-                    <div className="h-4 bg-slate-200 rounded w-full mt-3"></div>
-                  </div>
-                </Card>
-              ))}
+            <div className="flex flex-col items-center justify-center py-20 gap-4 bg-white rounded-xl border border-slate-200 shadow-sm w-full">
+              <LoadingSpinner className="h-10 w-10 text-brand-600 animate-spin" />
+              <span className="text-sm text-slate-500 font-medium animate-pulse">
+                Finding nearby offers...
+              </span>
             </div>
           ) : viewTab === "shops" ? (
             // SHOPS LISTING
@@ -740,7 +761,11 @@ export default function CustomerDashboardPage() {
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-1.5">
                               <span className="bg-brand-50 text-brand-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
-                                {offer.offerType === "Percentage" ? `${offer.discountValue}% OFF` : offer.offerType}
+                                {offer.offerType === "Percentage"
+                                  ? `${offer.discountValue}% OFF`
+                                  : offer.offerType === "Flat Discount"
+                                  ? `Flat $${offer.discountValue} OFF`
+                                  : `${offer.offerType}`}
                               </span>
                               <button
                                 onClick={() => handleToggleOfferFavorite(offer.offerId)}

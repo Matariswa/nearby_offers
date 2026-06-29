@@ -91,13 +91,14 @@ export default function OfferDetailsPage() {
   // Load offer, shop details, and favorite list
   useEffect(() => {
     if (!firebaseUser || !offerId) return;
+    const uid = firebaseUser.uid;
 
     async function loadData() {
       try {
         const { getDoc } = await import("firebase/firestore");
         
         // Load favorite offers
-        const favOffers = await usersService.getFavoriteOffers(firebaseUser.uid);
+        const favOffers = await usersService.getFavoriteOffers(uid);
         setFavorites(favOffers);
 
         // Fetch Offer Doc
@@ -115,7 +116,7 @@ export default function OfferDetailsPage() {
         // Check if offer is active and not expired
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const end = offerData.endDate?.toDate ? offerData.endDate.toDate() : new Date(offerData.endDate);
+        const end = (offerData.endDate as any)?.toDate ? (offerData.endDate as any).toDate() : new Date(offerData.endDate as any);
         end.setHours(0, 0, 0, 0);
 
         if (offerData.active !== true || end < today) {
