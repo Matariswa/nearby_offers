@@ -667,7 +667,7 @@ export default function CustomerDashboardPage() {
                   </Card>
                 );
               })
-            )}
+            ))}
         </div>
 
         {/* Right Column: Google Map Container */}

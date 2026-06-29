@@ -18,21 +18,17 @@ const envKeys = {
   measurementId: "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID",
 } as const;
 
-function readEnv(key: string): string | undefined {
-  const value = process.env[key];
-  return value && value.trim().length > 0 ? value.trim() : undefined;
-}
-
 export function getFirebaseConfig(): FirebaseEnvConfig {
-  return {
-    apiKey: readEnv(envKeys.apiKey) ?? "",
-    authDomain: readEnv(envKeys.authDomain) ?? "",
-    projectId: readEnv(envKeys.projectId) ?? "",
-    storageBucket: readEnv(envKeys.storageBucket) ?? "",
-    messagingSenderId: readEnv(envKeys.messagingSenderId) ?? "",
-    appId: readEnv(envKeys.appId) ?? "",
-    measurementId: readEnv(envKeys.measurementId),
+  const config = {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim() ?? "",
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim() ?? "",
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim() ?? "",
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim() ?? "",
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID?.trim() ?? "",
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID?.trim() ?? "",
+    measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID?.trim(),
   };
+  return config;
 }
 
 export function isFirebaseConfigured(config: FirebaseEnvConfig): boolean {
