@@ -57,6 +57,36 @@ export class UsersService {
     if (!snap.exists()) return [];
     return snap.data().favorites || [];
   }
+
+  /**
+   * Add an offer to the user's favorite offers list.
+   */
+  async addFavoriteOffer(userId: string, offerId: string): Promise<void> {
+    const docRef = this.getDocRef(userId);
+    await updateDoc(docRef, {
+      favoriteOffers: arrayUnion(offerId),
+    });
+  }
+
+  /**
+   * Remove an offer from the user's favorite offers list.
+   */
+  async removeFavoriteOffer(userId: string, offerId: string): Promise<void> {
+    const docRef = this.getDocRef(userId);
+    await updateDoc(docRef, {
+      favoriteOffers: arrayRemove(offerId),
+    });
+  }
+
+  /**
+   * Retrieve the list of favorite offer IDs for a user.
+   */
+  async getFavoriteOffers(userId: string): Promise<string[]> {
+    const docRef = this.getDocRef(userId);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) return [];
+    return snap.data().favoriteOffers || [];
+  }
 }
 
 export const usersService = new UsersService();

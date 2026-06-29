@@ -159,11 +159,44 @@ export default function ShopDetailsPage() {
     return (
       <DashboardLayout
         title="Shop Details"
-        description="View shop information and deals."
+        description="Loading shop information..."
         sidebarTitle="Customer"
         links={sidebarLinks}
       >
-        <PageLoader />
+        <div className="space-y-6 max-w-6xl animate-pulse">
+          {/* Action Row skeleton */}
+          <div className="flex items-center justify-between">
+            <div className="bg-slate-200 h-9 w-28 rounded-lg"></div>
+            <div className="bg-slate-200 h-9 w-36 rounded-lg"></div>
+          </div>
+
+          {/* Hero Card skeleton */}
+          <Card>
+            <div className="flex flex-col md:flex-row border-b pb-6 p-6 gap-6">
+              <div className="h-24 w-24 rounded-xl bg-slate-200 shrink-0"></div>
+              <div className="flex-1 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="bg-slate-200 h-8 w-48 rounded"></div>
+                  <div className="bg-slate-200 h-5 w-20 rounded-full"></div>
+                </div>
+                <div className="bg-slate-200 h-4 w-24 rounded"></div>
+                <div className="bg-slate-200 h-10 w-full max-w-2xl rounded"></div>
+              </div>
+            </div>
+
+            <div className="p-6 grid gap-6 md:grid-cols-2">
+              <div className="space-y-4">
+                <div className="bg-slate-200 h-6 w-32 rounded"></div>
+                <div className="bg-slate-200 h-12 w-full rounded"></div>
+                <div className="bg-slate-200 h-12 w-full rounded"></div>
+              </div>
+              <div className="space-y-4">
+                <div className="bg-slate-200 h-6 w-32 rounded"></div>
+                <div className="bg-slate-200 h-[220px] w-full rounded-lg"></div>
+              </div>
+            </div>
+          </Card>
+        </div>
       </DashboardLayout>
     );
   }
@@ -232,6 +265,9 @@ export default function ShopDetailsPage() {
                 <h2 className="text-3xl font-extrabold text-slate-900">{shop.shopName}</h2>
                 <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
                   Verified ✓
+                </span>
+                <span className="text-sm font-semibold text-amber-500 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 ml-1">
+                  ⭐ 4.6 (23 reviews)
                 </span>
               </div>
               <p className="text-slate-500 text-sm font-semibold uppercase tracking-wider">{shop.category}</p>
@@ -315,7 +351,7 @@ export default function ShopDetailsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Active Offers & Discounts ({offers.length})</CardTitle>
-            <CardDescription>Redeem deals by showing coupons in-store.</CardDescription>
+            <CardDescription>Redeem deals by showing coupons in-store. Click any card to view details.</CardDescription>
           </CardHeader>
           <CardContent>
             {offers.length === 0 ? (
@@ -327,7 +363,7 @@ export default function ShopDetailsPage() {
                 {offers.map((offer) => (
                   <div
                     key={offer.offerId}
-                    className="flex flex-col justify-between border rounded-xl p-4 bg-slate-50/50 hover:bg-slate-50 transition-colors"
+                    className="flex flex-col justify-between border rounded-xl p-4 bg-slate-50/50 hover:bg-slate-50 transition-colors relative"
                   >
                     <div>
                       <div className="flex items-center justify-between">
@@ -351,6 +387,12 @@ export default function ShopDetailsPage() {
                       ) : (
                         <span className="text-[10px] text-slate-400 italic">No code needed</span>
                       )}
+
+                      <Link href={`/dashboard/offer/${offer.offerId}`}>
+                        <Button size="sm" variant="outline" className="text-[11px] h-7 px-2">
+                          View Details →
+                        </Button>
+                      </Link>
                     </div>
                   </div>
                 ))}

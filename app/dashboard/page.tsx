@@ -38,6 +38,16 @@ const categoryOptions = [
   "Others",
 ];
 
+const offerTypeOptions = [
+  "All",
+  "Percentage",
+  "Flat Discount",
+  "Buy One Get One",
+  "Cashback",
+  "Free Gift",
+  "Combo",
+];
+
 export default function CustomerDashboardPage() {
   const { firebaseUser, userProfile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -46,6 +56,7 @@ export default function CustomerDashboardPage() {
   const [shops, setShops] = useState<Shop[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [favoriteOffers, setFavoriteOffers] = useState<string[]>([]);
 
   // Geolocation states
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -61,6 +72,7 @@ export default function CustomerDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRadius, setSelectedRadius] = useState<number>(5); // default 5 km
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedOfferType, setSelectedOfferType] = useState("All");
   const [sortBy, setSortBy] = useState<"nearest" | "discount" | "recent">("nearest");
   const [viewTab, setViewTab] = useState<"shops" | "offers">("shops");
 
@@ -111,15 +123,15 @@ export default function CustomerDashboardPage() {
 
     async function loadData() {
       try {
-        // Fetch favorites list
+        // Fetch favorites lists
         const favsList = await usersService.getFavoriteShops(firebaseUser.uid);
         setFavorites(favsList);
 
+        const favOffers = await usersService.getFavoriteOffers(firebaseUser.uid);
+        setFavoriteOffers(favOffers);
+
         // Load all shops
         const shopsRef = shopsService.getCollectionRef();
-        const shopsSnapshot = await shopsService.getCollectionRef(); // Wait, the collection gets fetched inside our service method
-        // Let's use getDocs on collection ref directly or implement in shop service.
-        // Wait, let's write a getDocs wrapper or fetch directly using Firestore SDK:
         const { getDocs } = await import("firebase/firestore");
         const shopSnap = await getDocs(shopsRef);
         const allShops = shopSnap.docs.map((doc) => doc.data() as Shop);
@@ -193,14 +205,18 @@ export default function CustomerDashboardPage() {
           return false;
         }
 
-        // Search Filter (Shop name, Category, City, Pincode)
+        // Search Filter (Shop name, Category, City, Pincode, or any matching Offer Title)
         if (searchQuery.trim()) {
           const query = searchQuery.toLowerCase();
           const matchName = shop.shopName.toLowerCase().includes(query);
           const matchCat = shop.category.toLowerCase().includes(query);
           const matchCity = shop.city.toLowerCase().includes(query);
           const matchPin = shop.pincode.toLowerCase().includes(query);
-          if (!matchName && !matchCat && !matchCity && !matchPin) {
+          
+          const shopOffers = offers.filter((o) => o.shopId === shop.shopId);
+          const matchOffer = shopOffers.some((o) => o.title.toLowerCase().includes(query));
+
+          if (!matchName && !matchCat && !matchCity && !matchPin && !matchOffer) {
             return false;
           }
         }
@@ -225,20 +241,70 @@ export default function CustomerDashboardPage() {
 
         return true;
       });
-  }, [shops, userLocation, selectedCategory, searchQuery, selectedRadius, manualCity, manualPincode, manualActive]);
+  }, [shops, offers, userLocation, selectedCategory, searchQuery, selectedRadius, manualCity, manualPincode, manualActive]);
 
   // Associate processed shops with their active offers
   const processedOffers = useMemo(() => {
     return offers
       .map((offer) => {
-        const parentShop = processedShops.find((s) => s.shopId === offer.shopId);
+        const parentShop = shops.find((s) => s.shopId === offer.shopId);
+        let distance = 99999;
+        if (userLocation && parentShop?.latitude && parentShop?.longitude) {
+          distance = calculateDistance(
+            { latitude: userLocation.latitude, longitude: userLocation.longitude },
+            { latitude: parentShop.latitude, longitude: parentShop.longitude }
+          );
+        }
         return {
           ...offer,
-          shop: parentShop,
+          shop: parentShop ? { ...parentShop, distance } : undefined,
         };
       })
-      .filter((o) => o.shop !== undefined) as (Offer & { shop: Shop & { distance: number } })[];
-  }, [offers, processedShops]);
+      .filter((o) => {
+        if (!o.shop) return false;
+
+        // Radius filter
+        if (!manualActive && userLocation && o.shop.distance > selectedRadius) {
+          return false;
+        }
+
+        // Category Filter
+        if (selectedCategory !== "All" && o.shop.category !== selectedCategory) {
+          return false;
+        }
+
+        // Offer Type Filter
+        if (selectedOfferType !== "All" && o.offerType !== selectedOfferType) {
+          return false;
+        }
+
+        // Search Filter (Shop Name, Offer Title, Category, City)
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matchOfferName = o.title.toLowerCase().includes(q);
+          const matchShopName = o.shop.shopName.toLowerCase().includes(q);
+          const matchCategory = o.shop.category.toLowerCase().includes(q);
+          const matchCity = o.shop.city.toLowerCase().includes(q);
+          if (!matchOfferName && !matchShopName && !matchCategory && !matchCity) {
+            return false;
+          }
+        }
+
+        // Manual Location Search
+        if (manualActive) {
+          const cityQuery = manualCity.trim().toLowerCase();
+          const pinQuery = manualPincode.trim().toLowerCase();
+          if (cityQuery && !o.shop.city.toLowerCase().includes(cityQuery)) {
+            return false;
+          }
+          if (pinQuery && !o.shop.pincode.toLowerCase().includes(pinQuery)) {
+            return false;
+          }
+        }
+
+        return true;
+      }) as (Offer & { shop: Shop & { distance: number } })[];
+  }, [offers, shops, userLocation, selectedRadius, selectedCategory, selectedOfferType, searchQuery, manualActive, manualCity, manualPincode]);
 
   // Sort shops
   const sortedShops = useMemo(() => {
@@ -272,6 +338,25 @@ export default function CustomerDashboardPage() {
       return 0;
     });
   }, [processedOffers, sortBy]);
+
+  const handleToggleOfferFavorite = (offerId: string) => {
+    if (!firebaseUser) return;
+
+    const isFav = favoriteOffers.includes(offerId);
+    startTransition(async () => {
+      try {
+        if (isFav) {
+          await usersService.removeFavoriteOffer(firebaseUser.uid, offerId);
+          setFavoriteOffers((prev) => prev.filter((id) => id !== offerId));
+        } else {
+          await usersService.addFavoriteOffer(firebaseUser.uid, offerId);
+          setFavoriteOffers((prev) => [...prev, offerId]);
+        }
+      } catch (err) {
+        console.error("Error toggling favorite offer:", err);
+      }
+    });
+  };
 
   // Initialize Map Instance
   useEffect(() => {
@@ -392,19 +477,6 @@ export default function CustomerDashboardPage() {
     return `https://www.google.com/maps/dir/?api=1&destination=${shop.latitude},${shop.longitude}`;
   };
 
-  if (loading) {
-    return (
-      <DashboardLayout
-        title="Nearby Offers"
-        description="Discover local deals in your area."
-        sidebarTitle="Customer"
-        links={sidebarLinks}
-      >
-        <PageLoader />
-      </DashboardLayout>
-    );
-  }
-
   return (
     <DashboardLayout
       title="Discover Deals"
@@ -470,7 +542,7 @@ export default function CustomerDashboardPage() {
         <div className="relative flex-1">
           <input
             type="text"
-            placeholder="Search by name, type, city..."
+            placeholder="Search by shop name, category, offer..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-lg border border-slate-200 px-3 py-2 pl-9 text-sm focus:border-brand-500 focus:outline-none"
@@ -483,7 +555,7 @@ export default function CustomerDashboardPage() {
           <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
             <button
               onClick={() => setViewTab("shops")}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
                 viewTab === "shops" ? "bg-white text-brand-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
               }`}
             >
@@ -491,7 +563,7 @@ export default function CustomerDashboardPage() {
             </button>
             <button
               onClick={() => setViewTab("offers")}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
                 viewTab === "offers" ? "bg-white text-brand-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
               }`}
             >
@@ -528,6 +600,20 @@ export default function CustomerDashboardPage() {
             ))}
           </select>
 
+          {viewTab === "offers" && (
+            <select
+              value={selectedOfferType}
+              onChange={(e) => setSelectedOfferType(e.target.value)}
+              className="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-brand-500"
+            >
+              {offerTypeOptions.map((type) => (
+                <option key={type} value={type}>
+                  Type: {type}
+                </option>
+              ))}
+            </select>
+          )}
+
           <select
             value={sortBy}
             onChange={(e: any) => setSortBy(e.target.value)}
@@ -544,7 +630,20 @@ export default function CustomerDashboardPage() {
       <div className="grid gap-6 lg:grid-cols-12 items-start">
         {/* Left Column: Listings */}
         <div className="lg:col-span-7 space-y-4 max-h-[80vh] overflow-y-auto pr-2">
-          {viewTab === "shops" ? (
+          {loading || locating ? (
+            <div className="space-y-4">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i} className="animate-pulse flex p-4 gap-4 bg-slate-50/50">
+                  <div className="h-16 w-16 bg-slate-200 rounded-lg shrink-0"></div>
+                  <div className="space-y-2.5 flex-1">
+                    <div className="h-5 bg-slate-200 rounded w-2/3"></div>
+                    <div className="h-3.5 bg-slate-200 rounded w-1/3"></div>
+                    <div className="h-4 bg-slate-200 rounded w-full mt-3"></div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : viewTab === "shops" ? (
             // SHOPS LISTING
             sortedShops.length === 0 ? (
               <Card className="text-center py-16">
@@ -598,7 +697,7 @@ export default function CustomerDashboardPage() {
                       <button
                         onClick={() => handleToggleFavorite(shop.shopId)}
                         disabled={isPending}
-                        className="absolute top-3 right-3 text-lg hover:scale-110 transition-transform focus:outline-none"
+                        className="absolute top-3 right-3 text-lg hover:scale-110 transition-transform focus:outline-none cursor-pointer"
                       >
                         {isFav ? "❤️" : "🤍"}
                       </button>
@@ -622,8 +721,9 @@ export default function CustomerDashboardPage() {
             ) : (
               sortedOffers.map((offer) => {
                 const validUntil = formatDate(offer.endDate);
+                const isOfferFav = favoriteOffers.includes(offer.offerId);
                 return (
-                  <Card key={offer.offerId} className="overflow-hidden hover:shadow-md transition-shadow">
+                  <Card key={offer.offerId} className="overflow-hidden hover:shadow-md transition-shadow relative">
                     <div className="flex flex-col sm:flex-row h-full">
                       {/* Banner Image */}
                       <div className="sm:w-1/3 h-32 sm:h-auto bg-slate-100 border-b sm:border-b-0 sm:border-r overflow-hidden flex items-center justify-center shrink-0">
@@ -638,9 +738,18 @@ export default function CustomerDashboardPage() {
                       <CardContent className="p-4 flex-1 flex flex-col justify-between">
                         <div>
                           <div className="flex items-center justify-between gap-2">
-                            <span className="bg-brand-50 text-brand-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
-                              {offer.offerType === "Percentage" ? `${offer.discountValue}% OFF` : offer.offerType}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="bg-brand-50 text-brand-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+                                {offer.offerType === "Percentage" ? `${offer.discountValue}% OFF` : offer.offerType}
+                              </span>
+                              <button
+                                onClick={() => handleToggleOfferFavorite(offer.offerId)}
+                                disabled={isPending}
+                                className="text-base hover:scale-110 transition-transform focus:outline-none cursor-pointer"
+                              >
+                                {isOfferFav ? "❤️" : "🤍"}
+                              </button>
+                            </div>
                             <span className="text-xs text-slate-500 font-semibold">
                               📍 {offer.shop.distance < 999 ? `${offer.shop.distance.toFixed(1)} km` : "N/A"}
                             </span>
@@ -653,21 +762,29 @@ export default function CustomerDashboardPage() {
 
                         <div className="flex items-center justify-between mt-4 pt-3 border-t text-[11px] text-slate-500 font-medium">
                           <span>Valid Until: {validUntil}</span>
-                          <a
-                            href={getDirectionsLink(offer.shop)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
-                          >
-                            🗺️ Get Directions
-                          </a>
+                          <div className="flex gap-2">
+                            <Link href={`/dashboard/offer/${offer.offerId}`}>
+                              <Button size="sm" variant="outline" className="text-[11px] h-7 px-2">
+                                Details →
+                              </Button>
+                            </Link>
+                            <a
+                              href={getDirectionsLink(offer.shop)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-brand-600 hover:bg-brand-700 text-white font-semibold text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 transition-colors"
+                            >
+                              🗺️ Navigate
+                            </a>
+                          </div>
                         </div>
                       </CardContent>
                     </div>
                   </Card>
                 );
               })
-            ))}
+            )
+          )}
         </div>
 
         {/* Right Column: Google Map Container */}
