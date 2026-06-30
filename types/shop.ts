@@ -21,6 +21,8 @@ export interface Shop extends AuditableDocumentMeta {
   logo: string | null;
   shopImages: string[];
   verified: boolean;
+  rating?: number;
+  reviewCount?: number;
 }
 
 /** Fields required when creating a shop. */

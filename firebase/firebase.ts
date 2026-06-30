@@ -58,7 +58,8 @@ export function getFirebaseAuth(): Auth {
 export function getFirebaseDb(): Firestore {
   if (!firebaseDb) {
     firebaseDb = initializeFirestore(getFirebaseApp(), {
-      experimentalForceLongPolling: true,
+      experimentalAutoDetectLongPolling: true,
+      ignoreUndefinedProperties: true,
     });
   }
 

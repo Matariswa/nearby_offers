@@ -23,6 +23,7 @@ const sidebarLinks = [
   { label: "Users", href: "/admin/users", icon: "👤" },
   { label: "Shops", href: "/admin/shops", icon: "🏪" },
   { label: "Offers", href: "/admin/offers", icon: "🏷️" },
+  { label: "Reviews", href: "/admin/reviews", icon: "⭐" },
 ];
 
 export default function AdminDashboardPage() {

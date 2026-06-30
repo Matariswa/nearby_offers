@@ -18,8 +18,10 @@ import { useGoogleMapsScript } from "@/hooks/useGoogleMapsScript";
 import { shopsService } from "@/services/shops.service";
 import { offersService } from "@/services/offers.service";
 import { usersService } from "@/services/users.service";
+import { reviewsService } from "@/services/reviews.service";
 import type { Shop } from "@/types/shop";
 import type { Offer } from "@/types/offer";
+import type { Review } from "@/types/review";
 
 const sidebarLinks = [
   { label: "Overview", href: "/dashboard", icon: "📊" },
@@ -32,17 +34,72 @@ export default function ShopDetailsPage() {
   const router = useRouter();
   const shopId = params.shopId as string;
 
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, userProfile } = useAuth();
   const [shop, setShop] = useState<Shop | null>(null);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Review submission Form state
+  const [formRating, setFormRating] = useState(5);
+  const [formComment, setFormComment] = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   // Google Maps
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
   const mapsLoaded = useGoogleMapsScript(apiKey);
   const mapRef = useRef<HTMLDivElement>(null);
   const [isPending, startTransition] = useTransition();
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firebaseUser || !shop) return;
+    if (!formComment.trim()) {
+      setSubmitError("Please write a comment for your review.");
+      return;
+    }
+
+    setIsSubmittingReview(true);
+    setSubmitError("");
+
+    try {
+      const newReview = await reviewsService.addReview({
+        shopId: shop.shopId,
+        userId: firebaseUser.uid,
+        userName: userProfile?.name || "Anonymous User",
+        rating: formRating,
+        comment: formComment.trim(),
+      });
+
+      setReviews((prev) => [newReview, ...prev]);
+
+      // Update shop stats locally
+      const oldReviewCount = shop.reviewCount || 0;
+      const oldRating = shop.rating || 0;
+      const newCount = oldReviewCount + 1;
+      const newRating = (oldRating * oldReviewCount + formRating) / newCount;
+
+      setShop((prev) =>
+        prev
+          ? {
+              ...prev,
+              reviewCount: newCount,
+              rating: Number(newRating.toFixed(2)),
+            }
+          : null
+      );
+
+      setFormComment("");
+      setFormRating(5);
+    } catch (err) {
+      console.error("Failed to submit review:", err);
+      setSubmitError("Failed to post your review. Please try again.");
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
   // Load shop profile, favorites, and offers
   useEffect(() => {
@@ -78,22 +135,26 @@ export default function ShopDetailsPage() {
 
         setShop(shopData);
 
-        // Fetch active offers for this shop
-        const q = query(offersService.getCollectionRef(), where("shopId", "==", shopId));
-        const offersSnap = await getDocs(q);
-        const allOffers = offersSnap.docs.map((doc) => doc.data() as Offer);
+      // Fetch active offers for this shop
+      const q = query(offersService.getCollectionRef(), where("shopId", "==", shopId));
+      const offersSnap = await getDocs(q);
+      const allOffers = offersSnap.docs.map((doc) => doc.data() as Offer);
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-        const activeOffers = allOffers.filter((o) => {
-          const end = (o.endDate as any)?.toDate ? (o.endDate as any).toDate() : new Date(o.endDate as any);
-          end.setHours(0, 0, 0, 0);
-          return o.active === true && end >= today;
-        });
+      const activeOffers = allOffers.filter((o) => {
+        const end = (o.endDate as any)?.toDate ? (o.endDate as any).toDate() : new Date(o.endDate as any);
+        end.setHours(0, 0, 0, 0);
+        return o.active === true && end >= today;
+      });
 
-        setOffers(activeOffers);
-      } catch (err) {
+      setOffers(activeOffers);
+
+      // Fetch reviews
+      const shopReviews = await reviewsService.getReviewsForShop(shopId);
+      setReviews(shopReviews);
+    } catch (err) {
         console.error("Error loading shop details:", err);
       } finally {
         setLoading(false);
@@ -269,7 +330,7 @@ export default function ShopDetailsPage() {
                   Verified ✓
                 </span>
                 <span className="text-sm font-semibold text-amber-500 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 ml-1">
-                  ⭐ 4.6 (23 reviews)
+                  ⭐ {shop.rating !== undefined && shop.rating > 0 ? shop.rating.toFixed(1) : "No rating"} ({shop.reviewCount || 0} reviews)
                 </span>
               </div>
               <p className="text-slate-500 text-sm font-semibold uppercase tracking-wider">{shop.category}</p>
@@ -402,6 +463,105 @@ export default function ShopDetailsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Reviews & Ratings Section */}
+        <div className="grid gap-6 md:grid-cols-12">
+          {/* Review Submission Form (Only for Customers) */}
+          <div className="md:col-span-5">
+            {userProfile?.role === "customer" ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Write a Review</CardTitle>
+                  <CardDescription>Share your shopping experience with other users.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSubmitReview} className="space-y-4">
+                    {submitError && (
+                      <p className="text-xs font-semibold text-red-500 bg-red-50 border border-red-200 rounded-lg p-2.5">
+                        ⚠️ {submitError}
+                      </p>
+                    )}
+                    <div>
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Rating</span>
+                      <div className="flex gap-1.5 mt-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setFormRating(star)}
+                            className="text-2xl hover:scale-110 transition-transform cursor-pointer focus:outline-none"
+                          >
+                            {star <= formRating ? "⭐" : "☆"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Review Comments</span>
+                      <textarea
+                        rows={4}
+                        value={formComment}
+                        onChange={(e) => setFormComment(e.target.value)}
+                        placeholder="Write your review details here..."
+                        className="w-full mt-2 rounded-lg border border-slate-200 p-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                        maxLength={500}
+                      />
+                    </div>
+                    <Button type="submit" className="w-full" isLoading={isSubmittingReview}>
+                      Submit Review
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Customer Reviews</CardTitle>
+                  <CardDescription>Only customer accounts are permitted to write reviews.</CardDescription>
+                </CardHeader>
+              </Card>
+            )}
+          </div>
+
+          {/* Reviews List */}
+          <div className="md:col-span-7">
+            <Card className="h-full flex flex-col justify-between">
+              <CardHeader>
+                <CardTitle>User Reviews ({reviews.length})</CardTitle>
+                <CardDescription>Read what other shoppers think of this shop.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                {reviews.length === 0 ? (
+                  <div className="text-center py-16 text-slate-400 gap-2 flex flex-col items-center justify-center">
+                    <span className="text-4xl">⭐</span>
+                    <p className="text-sm font-medium">No reviews yet. Be the first to write one!</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
+                    {reviews.map((rev) => (
+                      <div key={rev.reviewId} className="p-4 space-y-2 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="font-bold text-slate-800 text-sm truncate">{rev.userName}</span>
+                          <span className="text-[10px] font-semibold text-slate-400">
+                            {formatDate(rev.createdAt)}
+                          </span>
+                        </div>
+                        <div className="flex text-xs">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <span key={i}>{i < rev.rating ? "⭐" : "☆"}</span>
+                          ))}
+                        </div>
+                        <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">
+                          {rev.comment}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );

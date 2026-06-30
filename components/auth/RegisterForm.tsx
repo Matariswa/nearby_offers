@@ -70,7 +70,6 @@ export function RegisterForm() {
       });
       router.replace(getDashboardPathForRole(profile.role));
     } catch (error) {
-      alert("Debug Register Error: " + (error instanceof Error ? error.message : String(error)));
       setFormError(
         error instanceof Error ? error.message : "Unable to create account.",
       );
@@ -87,7 +86,6 @@ export function RegisterForm() {
       const profile = await signInGoogle({ role });
       router.replace(getDashboardPathForRole(profile.role));
     } catch (error) {
-      alert("Debug Google Error: " + (error instanceof Error ? error.message : String(error)));
       setFormError(
         error instanceof Error ? error.message : "Google sign-in failed.",
       );

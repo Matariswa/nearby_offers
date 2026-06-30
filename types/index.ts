@@ -34,6 +34,18 @@ export type {
   CategoryUpdateInput,
 } from "@/types/category";
 
+export type {
+  Review,
+  ReviewCreateInput,
+  SerializedReview,
+} from "@/types/review";
+
+export type {
+  Notification,
+  NotificationCreateInput,
+  SerializedNotification,
+} from "@/types/notification";
+
 export interface NavLink {
   label: string;
   href: string;

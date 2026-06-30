@@ -3,6 +3,8 @@ export const COLLECTIONS = {
   SHOPS: "shops",
   OFFERS: "offers",
   CATEGORIES: "categories",
+  REVIEWS: "reviews",
+  NOTIFICATIONS: "notifications",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

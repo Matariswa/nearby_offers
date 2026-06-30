@@ -2,6 +2,8 @@ import { usersService } from "@/services/users.service";
 import { shopsService } from "@/services/shops.service";
 import { offersService } from "@/services/offers.service";
 import { categoriesService } from "@/services/categories.service";
+import { reviewsService } from "@/services/reviews.service";
+import { notificationsService } from "@/services/notifications.service";
 
 export { UsersService, usersService } from "@/services/users.service";
 export { ShopsService, shopsService } from "@/services/shops.service";
@@ -10,6 +12,11 @@ export {
   CategoriesService,
   categoriesService,
 } from "@/services/categories.service";
+export { ReviewsService, reviewsService } from "@/services/reviews.service";
+export {
+  NotificationsService,
+  notificationsService,
+} from "@/services/notifications.service";
 
 export {
   signUpWithEmail,
@@ -29,4 +36,6 @@ export const firestoreServices = {
   shops: shopsService,
   offers: offersService,
   categories: categoriesService,
+  reviews: reviewsService,
+  notifications: notificationsService,
 } as const;

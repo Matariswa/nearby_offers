@@ -17,6 +17,7 @@ import { calculateDistance } from "@/utils/distance";
 import { shopsService } from "@/services/shops.service";
 import { offersService } from "@/services/offers.service";
 import { usersService } from "@/services/users.service";
+import { notificationsService } from "@/services/notifications.service";
 import type { Shop } from "@/types/shop";
 import type { Offer } from "@/types/offer";
 import Link from "next/link";
@@ -24,6 +25,7 @@ import Link from "next/link";
 const sidebarLinks = [
   { label: "Overview", href: "/dashboard", icon: "📊" },
   { label: "Favorites", href: "/dashboard/favorites", icon: "❤️" },
+  { label: "Notifications", href: "/dashboard/notifications", icon: "🔔" },
   { label: "Profile", href: "/dashboard/profile", icon: "👤" },
 ];
 
@@ -75,6 +77,9 @@ export default function CustomerDashboardPage() {
   const [selectedOfferType, setSelectedOfferType] = useState("All");
   const [sortBy, setSortBy] = useState<"nearest" | "discount" | "expiringSoon" | "recent">("nearest");
   const [viewTab, setViewTab] = useState<"shops" | "offers">("shops");
+  const [selectedDiscount, setSelectedDiscount] = useState<number>(0);
+  const [selectedExpiry, setSelectedExpiry] = useState<string>("all");
+  const [verifiedOnly, setVerifiedOnly] = useState<boolean>(true);
 
   const formatDate = (ts: any) => {
     if (!ts) return "";
@@ -100,6 +105,21 @@ export default function CustomerDashboardPage() {
   useEffect(() => {
     requestLocation();
   }, []);
+
+  // Trigger background scan for notifications once details are loaded
+  useEffect(() => {
+    if (!firebaseUser || loading || shops.length === 0 || offers.length === 0) return;
+
+    notificationsService
+      .checkAndGenerateNotifications(
+        firebaseUser.uid,
+        userLocation,
+        favoriteOffers,
+        offers,
+        shops
+      )
+      .catch((err) => console.error("Error generating notifications:", err));
+  }, [firebaseUser, loading, userLocation, favoriteOffers, offers, shops]);
 
   const requestLocation = () => {
     if (typeof window === "undefined" || !navigator.geolocation) {
@@ -211,6 +231,11 @@ export default function CustomerDashboardPage() {
         return { ...shop, distance };
       })
       .filter((shop) => {
+        // Verified Filter
+        if (verifiedOnly && !shop.verified) {
+          return false;
+        }
+
         // Category Filter
         if (selectedCategory !== "All" && shop.category !== selectedCategory) {
           return false;
@@ -250,9 +275,32 @@ export default function CustomerDashboardPage() {
           }
         }
 
+        // Filter by Discount/Expiry of Shop's Offers
+        const shopOffers = offers.filter((o) => o.shopId === shop.shopId);
+        if (selectedDiscount > 0 || selectedExpiry !== "all") {
+          const matchingOffers = shopOffers.filter((o) => {
+            if (selectedDiscount > 0 && o.discountValue < selectedDiscount) return false;
+            if (selectedExpiry !== "all") {
+              const daysMap: Record<string, number> = { today: 1, "3days": 3, week: 7 };
+              const days = daysMap[selectedExpiry];
+              if (days) {
+                const end = (o.endDate as any)?.toDate ? (o.endDate as any).toDate() : new Date(o.endDate as any);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const limit = new Date(today);
+                limit.setDate(today.getDate() + days);
+                limit.setHours(23, 59, 59, 999);
+                if (end < today || end > limit) return false;
+              }
+            }
+            return true;
+          });
+          if (matchingOffers.length === 0) return false;
+        }
+
         return true;
       });
-  }, [shops, offers, userLocation, selectedCategory, searchQuery, selectedRadius, manualCity, manualPincode, manualActive]);
+  }, [shops, offers, userLocation, selectedCategory, searchQuery, selectedRadius, manualCity, manualPincode, manualActive, selectedDiscount, selectedExpiry, verifiedOnly]);
 
   // Associate processed shops with their active offers
   const processedOffers = useMemo(() => {
@@ -273,6 +321,11 @@ export default function CustomerDashboardPage() {
       })
       .filter((o) => {
         if (!o.shop) return false;
+
+        // Verified Filter
+        if (verifiedOnly && !o.shop.verified) {
+          return false;
+        }
 
         // Radius filter
         if (!manualActive && userLocation && o.shop.distance > selectedRadius) {
@@ -313,9 +366,29 @@ export default function CustomerDashboardPage() {
           }
         }
 
+        // Discount Filter
+        if (selectedDiscount > 0 && o.discountValue < selectedDiscount) {
+          return false;
+        }
+
+        // Expiry Filter
+        if (selectedExpiry !== "all") {
+          const daysMap: Record<string, number> = { today: 1, "3days": 3, week: 7 };
+          const days = daysMap[selectedExpiry];
+          if (days) {
+            const end = (o.endDate as any)?.toDate ? (o.endDate as any).toDate() : new Date(o.endDate as any);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const limit = new Date(today);
+            limit.setDate(today.getDate() + days);
+            limit.setHours(23, 59, 59, 999);
+            if (end < today || end > limit) return false;
+          }
+        }
+
         return true;
       }) as (Offer & { shop: Shop & { distance: number } })[];
-  }, [offers, shops, userLocation, selectedRadius, selectedCategory, selectedOfferType, searchQuery, manualActive, manualCity, manualPincode]);
+  }, [offers, shops, userLocation, selectedRadius, selectedCategory, selectedOfferType, searchQuery, manualActive, manualCity, manualPincode, selectedDiscount, selectedExpiry, verifiedOnly]);
 
   // Sort shops
   const sortedShops = useMemo(() => {
@@ -552,104 +625,148 @@ export default function CustomerDashboardPage() {
         </div>
       )}
 
-      {/* Controls: Search, Tabs & Sorting */}
-      <div className="grid gap-4 md:grid-cols-3 mb-6 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        {/* Search */}
-        <div className="relative flex-1">
-          <input
-            type="text"
-            placeholder="Search by shop name, category, offer..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 pl-9 text-sm focus:border-brand-500 focus:outline-none"
-          />
-          <span className="absolute left-3 top-2.5 text-slate-400 text-sm">🔍</span>
-        </div>
-
-        {/* Filters: Radius / Tab Toggle */}
-        <div className="flex items-center gap-2 justify-between">
-          <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
-            <button
-              onClick={() => {
-                setViewTab("shops");
-                if (sortBy === "discount" || sortBy === "expiringSoon") {
-                  setSortBy("nearest");
-                }
-              }}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
-                viewTab === "shops" ? "bg-white text-brand-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Shops
-            </button>
-            <button
-              onClick={() => setViewTab("offers")}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
-                viewTab === "offers" ? "bg-white text-brand-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Offers
-            </button>
+      {/* Controls: Search, Tabs, Sorting & Filters */}
+      <div className="space-y-4 mb-6 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div className="grid gap-4 md:grid-cols-3">
+          {/* Search */}
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="Search by shop name, category, offer..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 pl-9 text-sm focus:border-brand-500 focus:outline-none"
+            />
+            <span className="absolute left-3 top-2.5 text-slate-400 text-sm">🔍</span>
           </div>
 
-          {!manualActive && userLocation && (
-            <select
-              value={selectedRadius}
-              onChange={(e) => setSelectedRadius(Number(e.target.value))}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-brand-500"
-            >
-              <option value="1">1 km Radius</option>
-              <option value="2">2 km Radius</option>
-              <option value="5">5 km Radius</option>
-              <option value="10">10 km Radius</option>
-              <option value="20">20 km Radius</option>
-            </select>
-          )}
-        </div>
+          {/* View Tab Toggle */}
+          <div className="flex items-center gap-2 justify-between">
+            <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
+              <button
+                onClick={() => {
+                  setViewTab("shops");
+                  if (sortBy === "discount" || sortBy === "expiringSoon") {
+                    setSortBy("nearest");
+                  }
+                }}
+                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                  viewTab === "shops" ? "bg-white text-brand-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Shops
+              </button>
+              <button
+                onClick={() => setViewTab("offers")}
+                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                  viewTab === "offers" ? "bg-white text-brand-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Offers
+              </button>
+            </div>
 
-        {/* Sort Controls */}
-        <div className="flex gap-2">
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-brand-500"
-          >
-            {categoryOptions.map((cat) => (
-              <option key={cat} value={cat}>
-                Category: {cat}
-              </option>
-            ))}
-          </select>
+            {!manualActive && userLocation && (
+              <select
+                value={selectedRadius}
+                onChange={(e) => setSelectedRadius(Number(e.target.value))}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-brand-500"
+              >
+                <option value="1">1 km Radius</option>
+                <option value="2">2 km Radius</option>
+                <option value="5">5 km Radius</option>
+                <option value="10">10 km Radius</option>
+                <option value="20">20 km Radius</option>
+              </select>
+            )}
+          </div>
 
-          {viewTab === "offers" && (
+          {/* Category / Offer Type */}
+          <div className="flex gap-2">
             <select
-              value={selectedOfferType}
-              onChange={(e) => setSelectedOfferType(e.target.value)}
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
               className="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-brand-500"
             >
-              {offerTypeOptions.map((type) => (
-                <option key={type} value={type}>
-                  Type: {type}
+              {categoryOptions.map((cat) => (
+                <option key={cat} value={cat}>
+                  Category: {cat}
                 </option>
               ))}
             </select>
-          )}
 
+            {viewTab === "offers" && (
+              <select
+                value={selectedOfferType}
+                onChange={(e) => setSelectedOfferType(e.target.value)}
+                className="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-brand-500"
+              >
+                {offerTypeOptions.map((type) => (
+                  <option key={type} value={type}>
+                    Type: {type}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 items-center border-t border-slate-100 pt-3">
+          {/* Sort Controls */}
           <select
             value={sortBy}
             onChange={(e: any) => setSortBy(e.target.value)}
-            className="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-brand-500"
+            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-brand-500"
           >
             <option value="nearest">Sort by: Nearest</option>
             {viewTab === "offers" ? (
               <>
                 <option value="discount">Sort by: Highest Discount</option>
                 <option value="expiringSoon">Sort by: Expiring Soon</option>
+                <option value="recent">Sort by: Newest</option>
               </>
             ) : (
               <option value="recent">Sort by: Newest</option>
             )}
           </select>
+
+          {/* Discount Filter */}
+          <select
+            value={selectedDiscount}
+            onChange={(e) => setSelectedDiscount(Number(e.target.value))}
+            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-brand-500"
+          >
+            <option value="0">Min Discount: All</option>
+            <option value="10">Min Discount: 10%+</option>
+            <option value="20">Min Discount: 20%+</option>
+            <option value="30">Min Discount: 30%+</option>
+            <option value="50">Min Discount: 50%+</option>
+          </select>
+
+          {/* Expiry Filter */}
+          <select
+            value={selectedExpiry}
+            onChange={(e) => setSelectedExpiry(e.target.value)}
+            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-brand-500"
+          >
+            <option value="all">Expiry: All</option>
+            <option value="today">Expiring Today</option>
+            <option value="3days">Expiring in 3 Days</option>
+            <option value="week">Expiring this Week</option>
+          </select>
+
+          {/* Verified Shops */}
+          <div className="flex items-center justify-end px-2">
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={verifiedOnly}
+                onChange={(e) => setVerifiedOnly(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+              />
+              Verified Shops Only
+            </label>
+          </div>
         </div>
       </div>
 
