@@ -27,9 +27,7 @@ export function validateShopForm(values: ShopFormValues): Record<string, string>
   }
 
   const phoneTrimmed = values.phone.trim();
-  if (!phoneTrimmed) {
-    errors.phone = "Phone number is required.";
-  } else if (!/^\+?[\d\s-()]{7,20}$/.test(phoneTrimmed)) {
+  if (phoneTrimmed && !/^\+?[\d\s-()]{7,20}$/.test(phoneTrimmed)) {
     errors.phone = "Please enter a valid phone number.";
   }
 

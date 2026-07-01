@@ -20,6 +20,7 @@ const sidebarLinks = [
   { label: "Shops", href: "/admin/shops", icon: "🏪" },
   { label: "Offers", href: "/admin/offers", icon: "🏷️" },
   { label: "Reviews", href: "/admin/reviews", icon: "⭐" },
+  { label: "Import Shops", href: "/admin/import", icon: "📥" },
 ];
 
 const categoryOptions = [
@@ -216,7 +217,6 @@ export default function AdminShopsPage() {
                   <thead className="bg-slate-50 text-xs font-semibold text-slate-700 uppercase tracking-wider border-b">
                     <tr>
                       <th className="px-6 py-3.5">Shop Name / Category</th>
-                      <th className="px-6 py-3.5">Owner Name</th>
                       <th className="px-6 py-3.5">City</th>
                       <th className="px-6 py-3.5">Verification</th>
                       <th className="px-6 py-3.5 text-right">Actions</th>
@@ -239,9 +239,6 @@ export default function AdminShopsPage() {
                               <p className="text-xs text-slate-400 font-medium">{shop.category}</p>
                             </div>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-xs text-slate-600 font-medium">
-                          {shop.ownerName || "Unknown Owner"}
                         </td>
                         <td className="px-6 py-4 text-xs text-slate-500">
                           {shop.city}

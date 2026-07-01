@@ -23,6 +23,7 @@ const sidebarLinks = [
   { label: "Overview", href: "/shop-owner", icon: "📊" },
   { label: "My Shop", href: "/shop-owner/shop", icon: "🏪" },
   { label: "Offers", href: "/shop-owner/offers", icon: "🏷️" },
+  { label: "Reviews", href: "/shop-owner/reviews", icon: "⭐" },
   { label: "Analytics", href: "/shop-owner/analytics", icon: "📈" },
 ];
 
@@ -106,7 +107,7 @@ export default function OffersPage() {
         const shopProfile = await shopsService.getShopByOwner(uid);
         if (shopProfile) {
           setShop(shopProfile);
-          const shopOffers = await offersService.getOffersByShop(shopProfile.shopId);
+          const shopOffers = await offersService.getOffersByShop(shopProfile.shopId, uid);
           setOffers(shopOffers);
         }
       } catch (err: any) {

@@ -36,8 +36,11 @@ export class OffersService {
   /**
    * Fetch all offers for a specific shop.
    */
-  async getOffersByShop(shopId: string): Promise<Offer[]> {
-    const q = query(this.collection, where("shopId", "==", shopId));
+  async getOffersByShop(shopId: string, ownerId?: string): Promise<Offer[]> {
+    let q = query(this.collection, where("shopId", "==", shopId));
+    if (ownerId) {
+      q = query(q, where("ownerId", "==", ownerId));
+    }
     const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => doc.data());
   }

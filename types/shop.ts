@@ -7,6 +7,8 @@ export interface Shop extends AuditableDocumentMeta {
   shopName: string;
   ownerName: string;
   category: string;
+  mainCategory?: string;
+  subcategory?: string;
   description: string;
   phone: string;
   email: string;
@@ -23,6 +25,7 @@ export interface Shop extends AuditableDocumentMeta {
   verified: boolean;
   rating?: number;
   reviewCount?: number;
+  googleMapsLink?: string;
 }
 
 /** Fields required when creating a shop. */
@@ -41,6 +44,9 @@ export interface ShopCreateInput {
   shopImages?: string[];
   latitude?: number;
   longitude?: number;
+  mainCategory?: string;
+  subcategory?: string;
+  googleMapsLink?: string;
 }
 
 /** Fields that can be updated on an existing shop. */
@@ -60,6 +66,9 @@ export interface ShopUpdateInput {
   latitude?: number;
   longitude?: number;
   verified?: boolean;
+  mainCategory?: string;
+  subcategory?: string;
+  googleMapsLink?: string;
 }
 
 /** Shop document with timestamps converted for client use. */

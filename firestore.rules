@@ -11,9 +11,7 @@ service cloud.firestore {
     }
 
     function getUserRole() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
-        : 'customer';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
     function isShopOwner() {
@@ -51,21 +49,9 @@ service cloud.firestore {
     }
 
     match /shops/{shopId} {
-      allow read: if isSignedIn();
-
-      allow create: if isAdmin()
-        || (isShopOwner() && request.resource.data.ownerId == request.auth.uid);
-
-      allow update: if isAdmin()
-        || (isShopOwner() && resource.data.ownerId == request.auth.uid && request.resource.data.ownerId == request.auth.uid)
-        || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'reviewCount', 'updatedAt']));
-
-      allow delete: if isAdmin()
-        || (isShopOwner() && resource.data.ownerId == request.auth.uid);
-    }
-
-    match /offers/{offerId} {
-      allow read: if isSignedIn();
+      allow read: if isAdmin()
+        || (isShopOwner() && resource.data.ownerId == request.auth.uid)
+        || (isSignedIn() && getUserRole() == 'customer' && resource.data.verified == true);
 
       allow create: if isAdmin()
         || (isShopOwner() && request.resource.data.ownerId == request.auth.uid);
@@ -77,18 +63,19 @@ service cloud.firestore {
         || (isShopOwner() && resource.data.ownerId == request.auth.uid);
     }
 
-    match /reviews/{reviewId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if false;
-      allow delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-    }
+    match /offers/{offerId} {
+      allow read: if isAdmin()
+        || (isShopOwner() && resource.data.ownerId == request.auth.uid)
+        || (isSignedIn() && getUserRole() == 'customer' && resource.data.active == true);
 
-    match /notifications/{notificationId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isAdmin()
+        || (isShopOwner() && request.resource.data.ownerId == request.auth.uid);
+
+      allow update: if isAdmin()
+        || (isShopOwner() && resource.data.ownerId == request.auth.uid && request.resource.data.ownerId == request.auth.uid);
+
+      allow delete: if isAdmin()
+        || (isShopOwner() && resource.data.ownerId == request.auth.uid);
     }
 
     match /categories/{document=**} {

@@ -22,6 +22,7 @@ const sidebarLinks = [
   { label: "Shops", href: "/admin/shops", icon: "🏪" },
   { label: "Offers", href: "/admin/offers", icon: "🏷️" },
   { label: "Reviews", href: "/admin/reviews", icon: "⭐" },
+  { label: "Import Shops", href: "/admin/import", icon: "📥" },
 ];
 
 const offerTypes = [
